@@ -41,8 +41,8 @@ page. The folder READMEs have the details for each step.
 5. **Send.** `src/decide/model.ts` is the provider boundary. It splits a
    request into chunks of at most the provider's question limit and hashes
    each chunk. It returns a cached answer if one is valid. Otherwise it
-   sends the chunk through one of three transports, `hosted`, `jev`, or
-   `clef`. It retries transient errors up to four times with backoff, then
+   sends the chunk through `hosted`, `jev`, `clef`, `openai`, or `gemini`.
+   It retries transient errors up to four times with backoff, then
    checks that every answer matches its question.
 6. **Free endpoint.** For the `hosted` transport, `src/api/worker.ts`
    refuses web-page origins and malformed install ids, and applies rate

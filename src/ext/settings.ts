@@ -3,15 +3,17 @@
  * chrome.storage.session.
  */
 import { DEFAULT_PALETTE, isPaletteId, type PaletteId as Palette } from "../core/palettes.ts";
-import type { ProviderConfig } from "../decide/model.ts";
+import { isProviderId, type ProviderConfig, type ProviderId } from "../decide/model.ts";
 
 /** The user's settings, stored under the `settings` key. */
 export interface Settings {
-  /** "hosted" is Jev through api.practicaldata.dev and needs no key. "jev" and "clef" use the user's own credentials. */
-  readonly provider: "hosted" | "jev" | "clef";
+  /** "hosted" is Jev through api.practicaldata.dev and needs no key. Other providers use the user's own credentials. */
+  readonly provider: ProviderId;
   readonly typesafeApiKey: string;
   readonly cloudflareAccountId: string;
   readonly cloudflareApiToken: string;
+  readonly openaiApiKey: string;
+  readonly geminiApiKey: string;
   readonly clefModel: "clef" | "clef-flash";
   readonly palette: Palette;
   /**
@@ -30,6 +32,8 @@ export const DEFAULT_SETTINGS: Settings = {
   typesafeApiKey: "",
   cloudflareAccountId: "",
   cloudflareApiToken: "",
+  openaiApiKey: "",
+  geminiApiKey: "",
   clefModel: "clef",
   palette: DEFAULT_PALETTE,
   mode: "everywhere",
@@ -42,7 +46,11 @@ export const loadSettings = async (): Promise<Settings> => {
   const stored = await chrome.storage.local.get("settings");
   const merged = { ...DEFAULT_SETTINGS, ...(stored["settings"] as Partial<Settings> | undefined) };
   // Palettes before October 2026 were "classic" | "colorblind"; unknown ids fall back to the default.
-  return { ...merged, palette: isPaletteId(merged.palette) ? merged.palette : DEFAULT_PALETTE };
+  return {
+    ...merged,
+    provider: isProviderId(merged.provider) ? merged.provider : DEFAULT_SETTINGS.provider,
+    palette: isPaletteId(merged.palette) ? merged.palette : DEFAULT_PALETTE,
+  };
 };
 
 export const saveSettings = (s: Settings) => chrome.storage.local.set({ settings: s });
@@ -100,8 +108,12 @@ export const setSiteEnabledIn = (s: Settings, host: string, enabled: boolean): S
 export const providerConfig = (s: Settings, installId: string): ProviderConfig | null => {
   if (s.provider === "hosted") return { provider: "hosted", installId };
   if (s.provider === "jev") return s.typesafeApiKey === "" ? null : { provider: "jev", apiKey: s.typesafeApiKey };
-  if (s.cloudflareAccountId === "" || s.cloudflareApiToken === "") return null;
-  return { provider: "clef", accountId: s.cloudflareAccountId, apiToken: s.cloudflareApiToken, model: s.clefModel };
+  if (s.provider === "clef")
+    return s.cloudflareAccountId === "" || s.cloudflareApiToken === ""
+      ? null
+      : { provider: "clef", accountId: s.cloudflareAccountId, apiToken: s.cloudflareApiToken, model: s.clefModel };
+  if (s.provider === "openai") return s.openaiApiKey === "" ? null : { provider: "openai", apiKey: s.openaiApiKey };
+  return s.geminiApiKey === "" ? null : { provider: "gemini", apiKey: s.geminiApiKey };
 };
 
 // ── Install id ──────────────────────────────────────────────────────────────

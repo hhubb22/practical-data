@@ -1,6 +1,6 @@
 # Privacy policy
 
-_Practical Data, a Chrome extension. Last updated October 31, 2026._
+_Practical Data, a Chrome extension. Last updated November 12, 2026._
 
 Practical Data shades the comparable columns of tables on web pages. To decide
 what each column means, it asks a decision model. From version 1.1.0, that goes
@@ -58,6 +58,11 @@ Only the provider set in the extension's options:
 - **Cloudflare** (Clef on Workers AI, with your own token), at
   `api.cloudflare.com`, under
   [Cloudflare's privacy policy](https://www.cloudflare.com/privacypolicy/).
+- **OpenAI** (Decisions, with your own key), at `api.openai.com`, under
+  [OpenAI's privacy policy](https://openai.com/policies/privacy-policy/).
+- **Google Gemini** (Decisions, with your own key), at
+  `generativelanguage.googleapis.com`, under
+  [Google's privacy policy](https://policies.google.com/privacy).
 
 With your own key or token, the extension's author receives nothing. The
 extension has no analytics, telemetry or crash reports with any provider.
@@ -108,3 +113,4 @@ Changes to this policy will be noted here with a new date.
 - October 29, 2026: the counts record the provider's HTTP status when a
   request fails upstream, and link the code that writes them.
 - October 31, 2026: the website keeps anonymous visit statistics.
+- November 12, 2026: OpenAI and Google Gemini are available with your own key.

@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_SETTINGS, isPrivateHost, setSiteEnabledIn, siteEnabled } from "../src/ext/settings.ts";
+import { isProviderId, PROVIDERS } from "../src/decide/model.ts";
+import {
+  DEFAULT_SETTINGS,
+  isPrivateHost,
+  loadSettings,
+  providerConfig,
+  setSiteEnabledIn,
+  siteEnabled,
+} from "../src/ext/settings.ts";
 
 test("local and private-network hosts are private", () => {
   for (const host of [
@@ -70,4 +78,70 @@ test("in chosen-sites mode, private and public hosts are off until the user turn
   assert.equal(siteEnabled(s, "en.wikipedia.org"), false);
   assert.equal(siteEnabled(s, "localhost"), false);
   assert.equal(siteEnabled(setSiteEnabledIn(s, "localhost", true), "localhost"), true);
+});
+
+test("provider ids include every supported provider and reject unknown stored values", () => {
+  for (const provider of PROVIDERS) assert.equal(isProviderId(provider), true);
+  for (const value of [undefined, null, 1, "", "unknown", "clef-flash", {}, ["openai"]])
+    assert.equal(isProviderId(value), false);
+});
+
+test("providerConfig uses the hosted install id and requires each provider's own credentials", () => {
+  assert.deepEqual(providerConfig(DEFAULT_SETTINGS, "install"), { provider: "hosted", installId: "install" });
+  for (const provider of ["jev", "clef", "openai", "gemini"] as const)
+    assert.equal(providerConfig({ ...DEFAULT_SETTINGS, provider }, "install"), null);
+  assert.deepEqual(providerConfig({ ...DEFAULT_SETTINGS, provider: "jev", typesafeApiKey: "ts-key" }, "install"), {
+    provider: "jev",
+    apiKey: "ts-key",
+  });
+  assert.equal(
+    providerConfig({ ...DEFAULT_SETTINGS, provider: "clef", cloudflareAccountId: "account" }, "install"),
+    null,
+  );
+  assert.equal(providerConfig({ ...DEFAULT_SETTINGS, provider: "clef", cloudflareApiToken: "token" }, "install"), null);
+  for (const model of ["clef", "clef-flash"] as const) {
+    assert.deepEqual(
+      providerConfig(
+        {
+          ...DEFAULT_SETTINGS,
+          provider: "clef",
+          cloudflareAccountId: "account",
+          cloudflareApiToken: "token",
+          clefModel: model,
+        },
+        "install",
+      ),
+      { provider: "clef", accountId: "account", apiToken: "token", model },
+    );
+  }
+  assert.deepEqual(providerConfig({ ...DEFAULT_SETTINGS, provider: "openai", openaiApiKey: "sk-key" }, "install"), {
+    provider: "openai",
+    apiKey: "sk-key",
+  });
+  assert.deepEqual(providerConfig({ ...DEFAULT_SETTINGS, provider: "gemini", geminiApiKey: "gm-key" }, "install"), {
+    provider: "gemini",
+    apiKey: "gm-key",
+  });
+});
+
+test("loadSettings defaults new credentials and sanitizes providers alongside palettes", async () => {
+  const realChrome = globalThis.chrome;
+  let settings: unknown;
+  globalThis.chrome = { storage: { local: { get: async () => ({ settings }) } } } as unknown as typeof chrome;
+  try {
+    assert.deepEqual(await loadSettings(), DEFAULT_SETTINGS);
+    settings = { provider: "unknown", palette: "unknown" };
+    assert.deepEqual(await loadSettings(), DEFAULT_SETTINGS);
+    for (const provider of PROVIDERS) {
+      settings = { provider, openaiApiKey: "sk-key", geminiApiKey: "gm-key" };
+      assert.deepEqual(await loadSettings(), {
+        ...DEFAULT_SETTINGS,
+        provider,
+        openaiApiKey: "sk-key",
+        geminiApiKey: "gm-key",
+      });
+    }
+  } finally {
+    globalThis.chrome = realChrome;
+  }
 });

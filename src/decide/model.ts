@@ -1,10 +1,18 @@
 /**
- * The provider layer for the decision model. The hosted endpoint, TypeSafe's
- * Jev, and Cloudflare's Clef take the same System One request and return the
- * same answers. Each provider is a `Transport` with a per-request question
- * limit. Code outside this file sees only decoded and validated answers.
+ * The provider layer for the decision model. Each provider is a `Transport`
+ * with a per-request question limit and a wire codec. Code outside this file
+ * sees only decoded and validated answers.
  */
 import { mapConcurrent, sleep } from "./concurrency.ts";
+import {
+  encodeGeminiRequest,
+  encodeOpenAIRequest,
+  unwrapGeminiResponse,
+  unwrapOpenAIResponse,
+  type SystemOneBody,
+} from "./wire.ts";
+
+export type { SystemOneBody } from "./wire.ts";
 
 // ── Request ─────────────────────────────────────────────────────────────────
 
@@ -182,12 +190,13 @@ const chunk = <A>(xs: readonly A[], size: number): A[][] => {
 
 /** How one provider sends a request body and returns System One JSON. */
 interface Transport {
+  readonly pool?: string;
   readonly name: string;
   /** The most questions in one request. Larger requests are split. */
   readonly maxQuestions: number;
-  readonly send: (body: unknown, signal: AbortSignal) => Promise<Response>;
+  readonly send: (body: SystemOneBody, signal: AbortSignal) => Promise<Response>;
   /** Removes the provider's envelope. Workers AI puts the answer under `result`. */
-  readonly unwrap: (json: unknown) => unknown;
+  readonly unwrap: (json: unknown, body: SystemOneBody) => unknown;
   /** Receives every response before its body is read. The hosted endpoint reports the allowance in headers. */
   readonly observe?: (response: Response) => void;
   /** Retries after an `overloaded` error. Defaults to `MAX_RETRIES`. */
@@ -281,9 +290,10 @@ const MAX_RETRIES = 4;
 const RETRY_BASE_MS = 250;
 
 /** Sends one request body and decodes the response. Does not retry. */
-const sendOnce = async (transport: Transport, body: unknown, signal?: AbortSignal): Promise<DecisionResponse> => {
-  const gate = limiters.get(transport.name) ?? limiter(MAX_IN_FLIGHT);
-  limiters.set(transport.name, gate);
+const sendOnce = async (transport: Transport, body: SystemOneBody, signal?: AbortSignal): Promise<DecisionResponse> => {
+  const gateKey = transport.pool ?? transport.name;
+  const gate = limiters.get(gateKey) ?? limiter(MAX_IN_FLIGHT);
+  limiters.set(gateKey, gate);
   const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
   let response: Response;
   try {
@@ -316,7 +326,7 @@ const sendOnce = async (transport: Transport, body: unknown, signal?: AbortSigna
   } catch (e) {
     throw new DecisionError({ reason: "decode", message: String(e) });
   }
-  const decoded = decodeDecisionResponse(transport.unwrap(json));
+  const decoded = decodeDecisionResponse(transport.unwrap(json, body));
   if (decoded === null) throw new DecisionError({ reason: "decode", message: "unexpected response shape" });
   return decoded;
 };
@@ -327,7 +337,7 @@ const sendOnce = async (transport: Transport, body: unknown, signal?: AbortSigna
  * `transport.overloadedRetries` times. After `signal` aborts, it does not
  * retry.
  */
-const send = async (transport: Transport, body: unknown, signal?: AbortSignal): Promise<DecisionResponse> => {
+const send = async (transport: Transport, body: SystemOneBody, signal?: AbortSignal): Promise<DecisionResponse> => {
   let overloaded = 0;
   for (let attempt = 1; ; attempt++) {
     try {
@@ -352,7 +362,11 @@ const makeModel = (transport: Transport, cache: AnswerCache = noCache): Decision
       parts,
       4,
       async (entries, partSignal) => {
-        const body = { model: transport.name, state: request.state, questions: Object.fromEntries(entries) };
+        const body: SystemOneBody = {
+          model: transport.name,
+          state: request.state,
+          questions: Object.fromEntries(entries),
+        };
         const key = await hashJson(body);
         const questions = Object.fromEntries(entries);
         // Check cached answers again, because storage can hold entries from older code.
@@ -378,6 +392,11 @@ const makeModel = (transport: Transport, cache: AnswerCache = noCache): Decision
 
 // ── Providers ───────────────────────────────────────────────────────────────
 
+export const PROVIDERS = ["hosted", "jev", "clef", "openai", "gemini"] as const;
+export type ProviderId = (typeof PROVIDERS)[number];
+export const isProviderId = (x: unknown): x is ProviderId =>
+  typeof x === "string" && (PROVIDERS as readonly string[]).includes(x);
+
 /** The settings that select a provider and its credentials. */
 export type ProviderConfig =
   | { readonly provider: "hosted"; readonly installId: string; readonly onAllowance?: (allowance: Allowance) => void }
@@ -387,7 +406,9 @@ export type ProviderConfig =
       readonly accountId: string;
       readonly apiToken: string;
       readonly model?: "clef" | "clef-flash";
-    };
+    }
+  | { readonly provider: "openai"; readonly apiKey: string; readonly model?: string }
+  | { readonly provider: "gemini"; readonly apiKey: string; readonly model?: string };
 
 /**
  * TypeSafe's Jev. Requests are split into chunks of 200 questions. The
@@ -399,6 +420,7 @@ export const jev = (
 ) =>
   makeModel(
     {
+      pool: "jev",
       name: options.model ?? "jev-latest",
       maxQuestions: 200,
       send: (body, signal) => postJson("https://api.typesafe.ai/v1/systemone", apiKey, body, signal),
@@ -440,6 +462,7 @@ export const hosted = (
 ) =>
   makeModel(
     {
+      pool: "hosted",
       name: "jev-hosted",
       maxQuestions: 200,
       // The Worker reserves a request from the allowance before it calls Jev, so each
@@ -472,6 +495,7 @@ export const clef = (
   const account = /^[0-9a-f]{32}$/i.test(accountId) ? accountId : encodeURIComponent(accountId);
   return makeModel(
     {
+      pool: "clef",
       name: model,
       maxQuestions: 64,
       send: (body, signal) =>
@@ -487,10 +511,57 @@ export const clef = (
   );
 };
 
+/** OpenAI Decisions. Requests are split into chunks of 400 questions. */
+export const openai = (
+  apiKey: string,
+  options: { readonly model?: string | undefined; readonly cache?: AnswerCache | undefined } = {},
+) =>
+  makeModel(
+    {
+      pool: "openai",
+      name: options.model ?? "gpt-6-luna",
+      maxQuestions: 400,
+      send: (body, signal) =>
+        postJson("https://api.openai.com/v1/decisions", apiKey, encodeOpenAIRequest(body), signal),
+      unwrap: unwrapOpenAIResponse,
+    },
+    options.cache,
+  );
+
+/** Google Gemini Decisions. Requests are split into chunks of 500 questions. */
+export const gemini = (
+  apiKey: string,
+  options: { readonly model?: string | undefined; readonly cache?: AnswerCache | undefined } = {},
+) =>
+  makeModel(
+    {
+      pool: "gemini",
+      name: options.model ?? "gemini-decision-1",
+      maxQuestions: 500,
+      send: (body, signal) =>
+        fetch("https://generativelanguage.googleapis.com/v1beta/decisions", {
+          method: "POST",
+          headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
+          body: JSON.stringify(encodeGeminiRequest(body)),
+          signal,
+        }),
+      unwrap: unwrapGeminiResponse,
+    },
+    options.cache,
+  );
+
 /** Returns the `DecisionModel` for `config`, with `cache` in front of the provider. */
-export const modelFromConfig = (config: ProviderConfig, cache?: AnswerCache): DecisionModel =>
-  config.provider === "hosted"
-    ? hosted(config.installId, { onAllowance: config.onAllowance, cache })
-    : config.provider === "jev"
-      ? jev(config.apiKey, { model: config.model, cache })
-      : clef(config.accountId, config.apiToken, { model: config.model, cache });
+export const modelFromConfig = (config: ProviderConfig, cache?: AnswerCache): DecisionModel => {
+  switch (config.provider) {
+    case "hosted":
+      return hosted(config.installId, { onAllowance: config.onAllowance, cache });
+    case "jev":
+      return jev(config.apiKey, { model: config.model, cache });
+    case "clef":
+      return clef(config.accountId, config.apiToken, { model: config.model, cache });
+    case "openai":
+      return openai(config.apiKey, { model: config.model, cache });
+    case "gemini":
+      return gemini(config.apiKey, { model: config.model, cache });
+  }
+};

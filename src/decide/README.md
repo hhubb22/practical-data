@@ -14,7 +14,8 @@ The entry point is `judgePage(model, page, policy, orientations, now)` in
 | --- | --- |
 | `questions.ts` | Builds the request state and the questions, and reads the answers into `NumericReading` and `CategoricalReading`. |
 | `judge.ts` | `judgePage`, `Policy`, and `DEFAULT_POLICY`. Sends the requests and applies the thresholds. Handles orientation, summary rows, date columns, and shared scales. |
-| `model.ts` | The `DecisionModel` interface, the providers (`hosted`, `jev`, `clef`), retries, rate limiting, `decodeDecisionResponse`, `validateAnswers`, and the `AnswerCache` interface. |
+| `model.ts` | The `DecisionModel` interface, the providers (`hosted`, `jev`, `clef`, `openai`, `gemini`), retries, rate limiting, `decodeDecisionResponse`, `validateAnswers`, and the `AnswerCache` interface. |
+| `wire.ts` | Pure request and response codecs for OpenAI and Gemini Decisions. Maps question and option ids to wire-safe names and restores them in answers. |
 | `concurrency.ts` | `mapConcurrent`, a bounded map that stops at the first failure, and an abortable `sleep`. |
 
 Code in `src/core` does the parts that need no model: `profile.ts`,
@@ -135,9 +136,10 @@ no new requests and leaves the other members' shared scale as it is.
 `AnswerCache`:
 
 - `evaluate` splits the questions into chunks of `maxQuestions`: 200 for
-  `jev` and `hosted`, and 64 for `clef`. Each chunk has the full state.
+  `jev` and `hosted`, 64 for `clef`, 400 for `openai`, and 500 for `gemini`.
+  Each chunk has the full state.
 - Each chunk body is `{ model, state, questions }`. Its cache key is
-  `hashJson(body)`, the SHA-256 of its JSON.
+  `hashJson(body)`, the SHA-256 of its JSON, before any wire conversion.
 - On a cache hit, `validateAnswers` checks the stored response against the
   questions. A response that fails is fetched again.
 - `sendOnce` allows 8 requests in flight per provider and sets a 20 s
@@ -160,6 +162,15 @@ The providers:
 - `jev` sends requests to TypeSafe with the user's API key.
 - `clef` sends requests to Cloudflare Workers AI with the user's account id
   and token.
+- `openai` sends requests to `api.openai.com/v1/decisions` with the user's
+  key. Its default model is `gpt-6-luna`.
+- `gemini` sends requests to `generativelanguage.googleapis.com/v1beta/decisions`
+  with the user's key in `x-goog-api-key`. Its default model is `gemini-decision-1`.
+
+`wire.ts` serializes state and structured question prose, translates the
+question types, and restores dotted ids in answers. Responses are normalized
+before decoding, validation, and caching. Models of one provider share the
+8-request concurrency limit.
 
 `modelFromConfig` picks one from a `ProviderConfig`. Each provider takes an
 optional `AnswerCache`. Without one, it uses `noCache`. The extension passes

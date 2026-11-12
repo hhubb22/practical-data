@@ -6,7 +6,7 @@
 <main class="doc">
   <a class="back" href="/">← Practical Data</a>
   <h1>Privacy policy</h1>
-  <p><em>Practical Data, a Chrome extension. Last updated October 31, 2026.</em></p>
+  <p><em>Practical Data, a Chrome extension. Last updated November 12, 2026.</em></p>
   <p>
     Practical Data shades the comparable columns of tables on web pages. To decide what each column means, it asks a
     decision model. From version 1.1.0, that goes by default through the free endpoint at <code
@@ -78,6 +78,15 @@
       <strong>Cloudflare</strong> (Clef on Workers AI, with your own token), at <code>api.cloudflare.com</code>, under
       <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare's privacy policy</a>.
     </li>
+    <li>
+      <strong>OpenAI</strong> (Decisions, with your own key), at <code>api.openai.com</code>, under
+      <a href="https://openai.com/policies/privacy-policy/">OpenAI's privacy policy</a>.
+    </li>
+    <li>
+      <strong>Google Gemini</strong> (Decisions, with your own key), at
+      <code>generativelanguage.googleapis.com</code>, under
+      <a href="https://policies.google.com/privacy">Google's privacy policy</a>.
+    </li>
   </ul>
   <p>
     With your own key or token, the extension's author receives nothing. The extension has no analytics, telemetry or
@@ -133,6 +142,7 @@
       that writes them.
     </li>
     <li>October 31, 2026: the website keeps anonymous visit statistics.</li>
+    <li>November 12, 2026: OpenAI and Google Gemini are available with your own key.</li>
   </ul>
 </main>
 

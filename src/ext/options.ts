@@ -5,7 +5,7 @@ import { positions, schemeColor } from "../core/scale.ts";
 import { cellFill, isDark } from "../core/tint.ts";
 import type { ColumnEncoding, PageJudgment, PageSnapshot, TableJudgment } from "../core/types.ts";
 import { judgePage } from "../decide/judge.ts";
-import { DecisionError, modelFromConfig } from "../decide/model.ts";
+import { DecisionError, isProviderId, modelFromConfig } from "../decide/model.ts";
 import {
   DEFAULT_SETTINGS,
   getInstallId,
@@ -115,11 +115,13 @@ const setStatus = (text: string, error = false) => {
 
 const read = (base: Settings): Settings => ({
   ...base,
-  provider: ((p) => (p === "clef" || p === "jev" ? p : "hosted"))(radio("provider")),
+  provider: ((p) => (isProviderId(p) ? p : "hosted"))(radio("provider")),
   palette: currentPalette(),
   typesafeApiKey: field("typesafeApiKey").value.trim(),
   cloudflareAccountId: field("cloudflareAccountId").value.trim(),
   cloudflareApiToken: field("cloudflareApiToken").value.trim(),
+  openaiApiKey: field("openaiApiKey").value.trim(),
+  geminiApiKey: field("geminiApiKey").value.trim(),
   clefModel: field("clefModel").value === "clef-flash" ? "clef-flash" : "clef",
   mode: radio("mode") === "chosen" ? "chosen" : "everywhere",
 });
@@ -131,6 +133,8 @@ const write = (s: Settings) => {
   field("typesafeApiKey").value = s.typesafeApiKey;
   field("cloudflareAccountId").value = s.cloudflareAccountId;
   field("cloudflareApiToken").value = s.cloudflareApiToken;
+  field("openaiApiKey").value = s.openaiApiKey;
+  field("geminiApiKey").value = s.geminiApiKey;
   field("clefModel").value = s.clefModel;
   syncProvider();
   renderHosts(s);

@@ -42,6 +42,11 @@ The receiver is the provider that you select on the options page:
   own TypeSafe key.
 - **Clef** sends requests from your browser to `api.cloudflare.com` with
   your own Cloudflare account id and API token.
+- **OpenAI** sends requests from your browser to `api.openai.com` with
+  your own OpenAI key, using `gpt-6-luna`.
+- **Gemini** sends requests from your browser to
+  `generativelanguage.googleapis.com` with your own Google key, using
+  `gemini-decision-1`.
 
 With your own key, the author receives nothing. The extension has no
 analytics, telemetry, or crash reporting.
@@ -66,8 +71,9 @@ these permissions:
   All of these stay in the extension's storage on your device.
 - `activeTab`, so that the toolbar popup can read the current tab's address
   and show the switch for that site.
-- Host access to `api.practicaldata.dev`, `api.typesafe.ai`, and
-  `api.cloudflare.com`, the three providers. The extension makes no other
+- `host_permissions` for `api.practicaldata.dev`, `api.typesafe.ai`,
+  `api.cloudflare.com`, `api.openai.com`, and
+  `generativelanguage.googleapis.com`. The extension makes no other
   network requests.
 
 Only the service worker and the extension's own pages read your API key.
@@ -94,9 +100,9 @@ npm run build
 
 1. Open `chrome://extensions` and turn on **Developer mode**.
 2. Select **Load unpacked** and choose the `dist/` folder.
-3. On the options page, select **Jev** or **Clef**, paste your own key,
-   and select **Test**. The free endpoint accepts only the store build, so
-   an unpacked build needs a key.
+3. On the options page, select **Jev**, **Clef**, **OpenAI**, or **Gemini**,
+   enter your own credentials, and select **Test**. The free endpoint accepts
+   only the store build, so an unpacked build needs a key.
 
 For field testing, `npm run build:dev` builds a copy that can flag tables
 it gets wrong. See [src/ext/README.md](src/ext/README.md#flags-dev-build-only).
@@ -275,6 +281,9 @@ Each miss is listed with its reason under `$known` in
 
 To compare providers, set `CLOUDFLARE_ACCOUNT_ID` and
 `CLOUDFLARE_API_TOKEN`, then run `node scripts/eval.ts --provider clef`.
+Use `--provider openai` with `OPENAI_API_KEY`, or `--provider gemini` with
+`GEMINI_API_KEY` (or `GOOGLE_API_KEY`). `--model <name>` selects a model for
+Jev, OpenAI, or Gemini. Each provider and model has its own recordings.
 
 ### Site
 

@@ -157,7 +157,7 @@ h2 {
 }
 .segmented span {
   display: block;
-  padding: 7px 14px;
+  padding: 7px 12px;
   border-radius: 7px;
   font-weight: 560;
   cursor: pointer;
@@ -170,7 +170,7 @@ h2 {
   color: var(--muted);
   margin-left: 4px;
 }
-@media (max-width: 480px) {
+@media (max-width: 650px) {
   .segmented {
     display: grid;
     width: 100%;

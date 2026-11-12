@@ -46,6 +46,12 @@
           <label
             ><input type="radio" name="provider" value="clef" /><span>Clef <small>Cloudflare</small></span></label
           >
+          <label
+            ><input type="radio" name="provider" value="openai" /><span>OpenAI <small>Luna</small></span></label
+          >
+          <label
+            ><input type="radio" name="provider" value="gemini" /><span>Gemini <small>Google</small></span></label
+          >
         </div>
 
         <div class="fields" data-for="hosted">
@@ -59,17 +65,39 @@
         <div class="fields" data-for="jev">
           <label class="field">
             <span>TypeSafe API key</span>
-            <input type="password" name="typesafeApiKey" autocomplete="off" spellcheck="false" placeholder="ts_…" />
+            <input
+              type="password"
+              name="typesafeApiKey"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="none"
+              spellcheck="false"
+              placeholder="ts_…"
+            />
           </label>
         </div>
         <div class="fields" data-for="clef">
           <label class="field">
             <span>Cloudflare account ID</span>
-            <input type="text" name="cloudflareAccountId" autocomplete="off" spellcheck="false" />
+            <input
+              type="text"
+              name="cloudflareAccountId"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="none"
+              spellcheck="false"
+            />
           </label>
           <label class="field">
             <span>Workers AI API token</span>
-            <input type="password" name="cloudflareApiToken" autocomplete="off" spellcheck="false" />
+            <input
+              type="password"
+              name="cloudflareApiToken"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="none"
+              spellcheck="false"
+            />
           </label>
           <label class="field">
             <span>Model</span>
@@ -77,6 +105,34 @@
               <option value="clef">clef: higher accuracy</option>
               <option value="clef-flash">clef-flash: lower latency</option>
             </select>
+          </label>
+        </div>
+        <div class="fields" data-for="openai" hidden>
+          <label class="field">
+            <span>OpenAI API key</span>
+            <input
+              type="password"
+              name="openaiApiKey"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="none"
+              spellcheck="false"
+              placeholder="sk-…"
+            />
+          </label>
+        </div>
+        <div class="fields" data-for="gemini" hidden>
+          <label class="field">
+            <span>Gemini API key</span>
+            <input
+              type="password"
+              name="geminiApiKey"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="none"
+              spellcheck="false"
+              placeholder="AIza…"
+            />
           </label>
         </div>
         <p class="note" id="key-note">

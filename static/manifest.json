@@ -5,7 +5,13 @@
   "description": "Conditional formatting for every web table: shades comparable columns, with the better direction figured out for you.",
   "homepage_url": "https://practicaldata.dev",
   "permissions": ["storage", "activeTab", "clipboardWrite"],
-  "host_permissions": ["https://api.practicaldata.dev/*", "https://api.typesafe.ai/*", "https://api.cloudflare.com/*"],
+  "host_permissions": [
+    "https://api.practicaldata.dev/*",
+    "https://api.typesafe.ai/*",
+    "https://api.cloudflare.com/*",
+    "https://api.openai.com/*",
+    "https://generativelanguage.googleapis.com/*"
+  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"

@@ -51,7 +51,7 @@ never takes a switch from one.
 | --- | --- |
 | `storage` | Settings, the install id, the answer cache, and the session state. |
 | `activeTab` | The popup and the `toggle-page` shortcut need the current tab's id and URL. `activeTab` grants them only after a user gesture. The broader `tabs` permission would expose every tab's URL. |
-| `host_permissions` for the three API origins | The worker and the options page call `api.practicaldata.dev`, `api.typesafe.ai`, and `api.cloudflare.com`. The extension calls no other origin. |
+| `host_permissions` for the five API origins | The worker and the options page call `api.practicaldata.dev`, `api.typesafe.ai`, `api.cloudflare.com`, `api.openai.com`, and `generativelanguage.googleapis.com`. The extension calls no other origin. |
 | `content_scripts` on `http://*/*`, `https://*/*` | Tables are shaded without a click. The content script makes no network requests. It sends table text only to the worker. |
 | `commands.toggle-page` | <kbd>Alt+Shift+H</kbd> pauses or resumes the current page. |
 
@@ -115,7 +115,8 @@ page's own sorter or expander counts as a page change.
 
 The free provider adds the `X-Practical-Data-Install` header with the
 `installId`, a `crypto.randomUUID` value. The other providers send the user's
-key as a bearer token.
+key as a bearer token, except Gemini, which uses the `x-goog-api-key` header.
+Keys never go in the URL.
 
 ## Answer cache
 

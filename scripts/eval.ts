@@ -3,6 +3,8 @@
  *
  *   node scripts/eval.ts                      # Jev, records new answers
  *   node scripts/eval.ts --provider clef      # Clef (needs CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN)
+ *   node scripts/eval.ts --provider openai    # OpenAI (needs OPENAI_API_KEY; optional --model)
+ *   node scripts/eval.ts --provider gemini    # Gemini (needs GEMINI_API_KEY or GOOGLE_API_KEY; optional --model)
  *   node scripts/eval.ts --offline            # replay recordings only; fails on a miss
  *   node scripts/eval.ts --only edge-cases --verbose
  *   node scripts/eval.ts --offline --strict   # CI gate: fails on undocumented mismatches
@@ -22,6 +24,7 @@ import { describeEncoding, scorePage, type Check, type CheckKind, type PageExpec
 const { values: args } = parseArgs({
   options: {
     provider: { type: "string", default: "jev" },
+    model: { type: "string" },
     offline: { type: "boolean", default: false },
     only: { type: "string" },
     verbose: { type: "boolean", default: false },
@@ -30,13 +33,32 @@ const { values: args } = parseArgs({
 });
 
 const config = (): ProviderConfig => {
-  if (args.provider === "jev") return { provider: "jev", apiKey: process.env["TYPESAFE_API_KEY"] ?? "" };
-  return {
-    provider: "clef",
-    accountId: process.env["CLOUDFLARE_ACCOUNT_ID"] ?? "",
-    apiToken: process.env["CLOUDFLARE_API_TOKEN"] ?? "",
-    model: args.provider === "clef-flash" ? "clef-flash" : "clef",
-  };
+  if (args.provider === "jev")
+    return {
+      provider: "jev",
+      apiKey: process.env["TYPESAFE_API_KEY"] ?? "",
+      ...(args.model === undefined ? {} : { model: args.model }),
+    };
+  if (args.provider === "clef" || args.provider === "clef-flash")
+    return {
+      provider: "clef",
+      accountId: process.env["CLOUDFLARE_ACCOUNT_ID"] ?? "",
+      apiToken: process.env["CLOUDFLARE_API_TOKEN"] ?? "",
+      model: args.provider === "clef-flash" ? "clef-flash" : "clef",
+    };
+  if (args.provider === "openai")
+    return {
+      provider: "openai",
+      apiKey: process.env["OPENAI_API_KEY"] ?? "",
+      ...(args.model === undefined ? {} : { model: args.model }),
+    };
+  if (args.provider === "gemini")
+    return {
+      provider: "gemini",
+      apiKey: process.env["GEMINI_API_KEY"] ?? process.env["GOOGLE_API_KEY"] ?? "",
+      ...(args.model === undefined ? {} : { model: args.model }),
+    };
+  throw new Error(`Unknown provider ${args.provider}. Supported providers: jev, clef, clef-flash, openai, gemini.`);
 };
 
 /** Counts requests with no recording. The judge recovers from a failed table or share request, so a miss alone does not fail the run. */
